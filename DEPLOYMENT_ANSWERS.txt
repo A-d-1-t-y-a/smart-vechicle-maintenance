@@ -1,0 +1,110 @@
+﻿=================================================================
+  DEPLOYMENT GUIDE - Answer These Questions
+=================================================================
+
+When you run: sam deploy --guided
+
+You will be asked several questions. Here's what to answer:
+
+QUESTION 1: Stack Name
+----------------------
+  Question: Stack Name [smart-vehicle-maintenance]:
+  Answer: Press ENTER (use default)
+
+QUESTION 2: AWS Region
+----------------------
+  Question: AWS Region [us-west-2]:
+  Answer: Press ENTER (use default)
+
+QUESTION 3: Parameter ProjectName
+----------------------------------
+  Question: Parameter ProjectName [smart-vehicle-maintenance]:
+  Answer: Press ENTER (use default)
+
+QUESTION 4: Confirm changes before deploy
+------------------------------------------
+  Question: Confirm changes before deploy [Y/n]:
+  Answer: Type Y and press ENTER
+
+QUESTION 5: Allow SAM CLI IAM role creation
+--------------------------------------------
+  Question: Allow SAM CLI IAM role creation [Y/n]:
+  Answer: Type Y and press ENTER
+   IMPORTANT: This is required for the app to work!
+
+QUESTION 6: Disable rollback
+-----------------------------
+  Question: Disable rollback [y/N]:
+  Answer: Type N and press ENTER (or just press ENTER)
+
+QUESTION 7: VehiclesFunction has no authentication
+---------------------------------------------------
+  Question: VehiclesFunction has no authentication. Is this okay? [y/N]:
+  Answer: Type y and press ENTER
+  Note: This is safe - authentication is handled by Cognito
+
+QUESTION 8: ServicesFunction has no authentication
+---------------------------------------------------
+  Question: ServicesFunction has no authentication. Is this okay? [y/N]:
+  Answer: Type y and press ENTER
+
+QUESTION 9: PredictionsFunction has no authentication
+------------------------------------------------------
+  Question: PredictionsFunction has no authentication. Is this okay? [y/N]:
+  Answer: Type y and press ENTER
+
+QUESTION 10: RemindersFunction has no authentication
+-----------------------------------------------------
+  Question: RemindersFunction has no authentication. Is this okay? [y/N]:
+  Answer: Type y and press ENTER
+
+QUESTION 11: Save arguments to configuration file
+--------------------------------------------------
+  Question: Save arguments to configuration file [Y/n]:
+  Answer: Type Y and press ENTER
+
+QUESTION 12: SAM configuration file
+------------------------------------
+  Question: SAM configuration file [samconfig.toml]:
+  Answer: Press ENTER (use default)
+
+QUESTION 13: SAM configuration environment
+-------------------------------------------
+  Question: SAM configuration environment [default]:
+  Answer: Press ENTER (use default)
+
+=================================================================
+WHAT HAPPENS NEXT:
+=================================================================
+
+After answering questions:
+  1. SAM will show you a changeset preview
+  2. Confirm the deployment (type 'y')
+  3. Wait 5-10 minutes while resources are created
+  4. You'll see progress updates
+  5. At the end, you'll see OUTPUTS - SAVE THESE!
+
+=================================================================
+IMPORTANT: SAVE THE OUTPUT VALUES!
+=================================================================
+
+At the end, you'll see something like:
+
+  Outputs
+  -----------------------------------------------------------------------
+  Key                 ApiUrl
+  Value               https://abc123.execute-api.us-west-2.amazonaws.com
+
+  Key                 UserPoolId
+  Value               us-west-2_ABC123XYZ
+
+  Key                 UserPoolClientId
+  Value               1234567890abcdefghijklmn
+
+  Key                 Region
+  Value               us-west-2
+
+ COPY ALL FOUR VALUES IMMEDIATELY!
+You'll need them for frontend configuration!
+
+=================================================================
