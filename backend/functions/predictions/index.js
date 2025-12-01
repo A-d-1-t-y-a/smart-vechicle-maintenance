@@ -43,10 +43,16 @@ const SERVICE_RULES = {
   }
 };
 
-// Helper to get user ID from Cognito token
+// Helper to get user ID from Cognito token (supports REST API and HTTP API JWT)
 function getUserId(event) {
-  const claims = event.requestContext.authorizer.claims;
-  return claims.sub;
+  const auth = event?.requestContext?.authorizer || {};
+  if (auth.claims && auth.claims.sub) {
+    return auth.claims.sub;
+  }
+  if (auth.jwt && auth.jwt.claims && auth.jwt.claims.sub) {
+    return auth.jwt.claims.sub;
+  }
+  throw new Error('Unauthorized: missing user claims');
 }
 
 // Helper to create response
