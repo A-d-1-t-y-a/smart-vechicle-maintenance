@@ -119,41 +119,41 @@ Resources:
           Properties:
             Path: /vehicles
             Method: GET
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         CreateVehicle:
           Type: HttpApi
           Properties:
             Path: /vehicles
             Method: POST
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         GetVehicle:
           Type: HttpApi
           Properties:
             Path: /vehicles/{vehicleId}
             Method: GET
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         UpdateVehicle:
           Type: HttpApi
           Properties:
             Path: /vehicles/{vehicleId}
             Method: PUT
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         DeleteVehicle:
           Type: HttpApi
           Properties:
             Path: /vehicles/{vehicleId}
             Method: DELETE
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
 
   ServicesFunction:
     Type: AWS::Serverless::Function
@@ -172,33 +172,33 @@ Resources:
           Properties:
             Path: /vehicles/{vehicleId}/services
             Method: GET
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         CreateService:
           Type: HttpApi
           Properties:
             Path: /vehicles/{vehicleId}/services
             Method: POST
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         UpdateService:
           Type: HttpApi
           Properties:
             Path: /services/{serviceId}
             Method: PUT
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
         DeleteService:
           Type: HttpApi
           Properties:
             Path: /services/{serviceId}
             Method: DELETE
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
 
   PredictionsFunction:
     Type: AWS::Serverless::Function
@@ -217,9 +217,9 @@ Resources:
           Properties:
             Path: /vehicles/{vehicleId}/predictions
             Method: GET
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref HttpApiGateway
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoJwtAuthorizer
 
   RemindersFunction:
     Type: AWS::Serverless::Function
@@ -231,7 +231,7 @@ Resources:
         Variables:
           SERVICES_TABLE: !Ref ServicesTable
           VEHICLES_TABLE: !Ref VehiclesTable
-          REMINDERS_TOPIC_ARN: !GetAtt RemindersTopic.Arn
+          REMINDERS_TOPIC_ARN: !Ref RemindersTopic
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ServicesTable
@@ -253,8 +253,8 @@ Resources:
       TopicName: !Sub '${ProjectName}-reminders'
       DisplayName: Vehicle Service Reminders
 
-  # API Gateway (implicitly created by SAM)
-  ServerlessHttpApi:
+  # API Gateway
+  HttpApiGateway:
     Type: AWS::Serverless::HttpApi
     Properties:
       CorsConfiguration:
@@ -272,17 +272,19 @@ Resources:
         MaxAge: 300
       Auth:
         Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt UserPool.Arn
-            Identity:
-              Header: Authorization
-        DefaultAuthorizer: CognitoAuthorizer
+          CognitoJwtAuthorizer:
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+              audience:
+                - !Ref UserPoolClient
+            IdentitySource: '$request.header.Authorization'
+        DefaultAuthorizer: CognitoJwtAuthorizer
       # Note: SAM automatically handles OPTIONS without requiring auth
 
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
-    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Value: !Sub 'https://${HttpApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
     Export:
       Name: !Sub '${ProjectName}-api-url'
 

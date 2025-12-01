@@ -3,6 +3,7 @@ version = 0.1
 [default]
 [default.global.parameters]
 stack_name = "smart-vehicle-maintenance"
+region = "us-west-2"
 
 [default.build.parameters]
 cached = true
@@ -12,7 +13,8 @@ parallel = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-region = "us-west-2"
 s3_prefix = "smart-vehicle-maintenance"
 image_repositories = []
+parameter_overrides = "ProjectName=\"smart-vehicle-maintenance\""
+disable_rollback = true
 
