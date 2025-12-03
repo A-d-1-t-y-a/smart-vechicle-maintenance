@@ -1,0 +1,24 @@
+# SAM Configuration Template
+# Copy this to samconfig.toml after first deployment
+# Or let SAM create it automatically with --guided
+
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "smart-vehicle-maintenance"
+region = "us-west-2"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+region = "us-west-2"
+stack_name = "smart-vehicle-maintenance"
+s3_prefix = "smart-vehicle-maintenance"
+image_repositories = []
+

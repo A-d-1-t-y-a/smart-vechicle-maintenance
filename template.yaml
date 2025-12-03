@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Workshop Parts Inventory & Auto-Reorder System
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        REGION: !Ref AWS::Region
+        PARTS_TABLE: !Ref PartsTable
+        STOCK_TABLE: !Ref StockTable
+        REMINDERS_TOPIC_ARN: !Ref RemindersTopic
+        ATTACHMENTS_BUCKET: !Ref AttachmentsBucket
+
+Resources:
+  # DynamoDB Tables
+  PartsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: smart-vehicle-maintenance-parts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: partId
+          AttributeType: S
+        - AttributeName: vehicleModel
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: partId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: VehicleModelIndex
+          KeySchema:
+            - AttributeName: vehicleModel
+              KeyType: HASH
+            - AttributeName: partId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  StockTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: smart-vehicle-maintenance-stock
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: partId
+          AttributeType: S
+        - AttributeName: vehicleModel
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: partId
+          KeyType: HASH
+        - AttributeName: vehicleModel
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdTimestampIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # S3 Bucket for Attachments
+  AttachmentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-attachments-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # SNS Topic for Notifications
+  RemindersTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: smart-vehicle-maintenance-reminders
+      DisplayName: Parts Reorder Reminders
+
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: smart-vehicle-maintenance-users
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: smart-vehicle-maintenance-client
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  # API Gateway HTTP API
+  HttpApiGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: [Content-Type, Authorization]
+        MaxAge: 300
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+              audience:
+                - !Ref UserPoolClient
+            IdentitySource: '$request.header.Authorization'
+        DefaultAuthorizer: CognitoJwtAuthorizer
+
+  # Lambda Functions
+  PartsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: smart-vehicle-maintenance-parts
+      Handler: src/handlers/parts.handler
+      CodeUri: src/handlers/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PartsTable
+        - S3ReadPolicy:
+            BucketName: !Ref AttachmentsBucket
+        - S3WritePolicy:
+            BucketName: !Ref AttachmentsBucket
+      Events:
+        ListParts:
+          Type: HttpApi
+          Properties:
+            Path: /parts
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        CreatePart:
+          Type: HttpApi
+          Properties:
+            Path: /parts
+            Method: POST
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetPart:
+          Type: HttpApi
+          Properties:
+            Path: /parts/{partId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        UpdatePart:
+          Type: HttpApi
+          Properties:
+            Path: /parts/{partId}
+            Method: PUT
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        DeletePart:
+          Type: HttpApi
+          Properties:
+            Path: /parts/{partId}
+            Method: DELETE
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  StockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: smart-vehicle-maintenance-stock
+      Handler: src/handlers/stock.handler
+      CodeUri: src/handlers/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StockTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PartsTable
+      Events:
+        GetStock:
+          Type: HttpApi
+          Properties:
+            Path: /stock/{partId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        UpdateStock:
+          Type: HttpApi
+          Properties:
+            Path: /stock/{partId}
+            Method: PUT
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        ListLowStock:
+          Type: HttpApi
+          Properties:
+            Path: /stock/low
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  ReorderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: smart-vehicle-maintenance-reorder
+      Handler: src/handlers/reorder.handler
+      CodeUri: src/handlers/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PartsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref StockTable
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref RemindersTopic
+      Events:
+        CheckReorder:
+          Type: HttpApi
+          Properties:
+            Path: /reorder/check
+            Method: POST
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetReorderTasks:
+          Type: HttpApi
+          Properties:
+            Path: /reorder/tasks
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: smart-vehicle-maintenance-analytics
+      Handler: src/handlers/analytics.handler
+      CodeUri: src/handlers/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PartsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref StockTable
+      Events:
+        GetAnalytics:
+          Type: HttpApi
+          Properties:
+            Path: /analytics
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: smart-vehicle-maintenance-notification
+      Handler: src/handlers/notification.handler
+      CodeUri: src/handlers/
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref RemindersTopic
+        - DynamoDBReadPolicy:
+            TableName: !Ref PartsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref StockTable
+
+  # CloudWatch Events Rule for Scheduled Stock Checks
+  StockCheckRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: smart-vehicle-maintenance-stock-check
+      Description: Check stock levels and trigger reorder notifications
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ReorderFunction.Arn
+          Id: ReorderCheckTarget
+
+  # Permission for EventBridge to invoke ReorderFunction
+  StockCheckRulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ReorderFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt StockCheckRule.Arn
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${HttpApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+  Region:
+    Description: AWS Region
+    Value: !Ref AWS::Region
+  RemindersTopicArn:
+    Description: SNS Topic ARN for reminders
+    Value: !Ref RemindersTopic
+  AttachmentsBucketName:
+    Description: S3 Bucket for attachments
+    Value: !Ref AttachmentsBucket
+
