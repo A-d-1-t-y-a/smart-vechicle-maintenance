@@ -212,7 +212,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref StockTable
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref PartsTable
       Events:
         GetStock:
