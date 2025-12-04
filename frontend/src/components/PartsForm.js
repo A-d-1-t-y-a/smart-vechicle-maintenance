@@ -19,12 +19,6 @@ function PartsForm() {
     supplier: ''
   });
 
-  useEffect(() => {
-    if (partId) {
-      loadPart();
-    }
-  }, [partId]);
-
   const loadPart = async () => {
     try {
       const response = await api.get(`/parts/${partId}`);

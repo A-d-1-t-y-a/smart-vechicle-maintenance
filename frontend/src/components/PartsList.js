@@ -11,6 +11,7 @@ function PartsList() {
 
   useEffect(() => {
     loadParts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const loadParts = async () => {
