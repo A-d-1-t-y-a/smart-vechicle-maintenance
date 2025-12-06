@@ -18,6 +18,10 @@ frontend/.env
 # AWS credential scripts (should use templates instead)
 set-credentials.bat
 setup-aws-credentials.sh
+setup-ecommerce-credentials.ps1
+*credentials*.ps1
+*credentials*.sh
+*credentials*.bat
 
 # IDE
 .vscode/

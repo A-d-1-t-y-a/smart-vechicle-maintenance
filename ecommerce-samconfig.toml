@@ -1,0 +1,19 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "ecommerce-platform"
+region = "us-west-2"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "ecommerce-platform"
+image_repositories = []
+parameter_overrides = "ProjectName=\"ecommerce-platform\""
+disable_rollback = true

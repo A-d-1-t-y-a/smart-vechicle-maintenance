@@ -1,0 +1,9 @@
+{
+  "name": "products-function",
+  "version": "1.0.0",
+  "description": "Lambda function for product management",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1400.0"
+  }
+}
