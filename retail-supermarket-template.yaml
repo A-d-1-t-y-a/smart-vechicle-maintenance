@@ -6,7 +6,7 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: nodejs18.x
+    Runtime: nodejs16.x
     Environment:
       Variables:
         PRODUCTS_TABLE: !Ref ProductsTable
@@ -167,12 +167,16 @@ Resources:
             Path: /products
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
         GetProduct:
           Type: HttpApi
           Properties:
             Path: /products/{productId}
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
         CreateProduct:
           Type: HttpApi
           Properties:
@@ -203,6 +207,8 @@ Resources:
             Path: /products/category/{categoryId}
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
 
   CategoriesFunction:
     Type: AWS::Serverless::Function
@@ -220,12 +226,16 @@ Resources:
             Path: /categories
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
         GetCategory:
           Type: HttpApi
           Properties:
             Path: /categories/{categoryId}
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
         CreateCategory:
           Type: HttpApi
           Properties:
@@ -261,6 +271,8 @@ Resources:
             Path: /inventory/product/{productId}
             Method: GET
             ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: NONE
         UpdateInventory:
           Type: HttpApi
           Properties:
@@ -281,6 +293,8 @@ Resources:
             TableName: !Ref OrdersTable
         - DynamoDBReadPolicy:
             TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref InventoryTable
         - DynamoDBWritePolicy:
             TableName: !Ref InventoryTable
       Events:
