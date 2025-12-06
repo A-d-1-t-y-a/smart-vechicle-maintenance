@@ -1,9 +1,0 @@
-{
-  "name": "populate-database",
-  "version": "1.0.0",
-  "description": "Populate retail supermarket database with sample data",
-  "main": "populate-database.js",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0"
-  }
-}
