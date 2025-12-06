@@ -1,34 +1,32 @@
 # Dependencies
 node_modules/
-frontend/node_modules/
 backend/functions/*/node_modules/
 
 # Build outputs
 .aws-sam/
-samconfig.toml.bak
+samconfig.toml
 *.zip
 
 # Environment variables
 .env
-frontend/.env
-*.env.local
-.env.aws
-*.credentials
+*.env
+backend-outputs.json
+frontend-deployment.json
 
-# AWS credential scripts (should use templates instead)
-set-credentials.bat
-setup-aws-credentials.sh
-setup-ecommerce-credentials.ps1
+# AWS credentials
 *credentials*.ps1
 *credentials*.sh
 *credentials*.bat
+
+# Temporary files
+temp-*.json
+cloudfront-config.json
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
@@ -36,15 +34,3 @@ Thumbs.db
 
 # Logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# React build
-frontend/build/
-frontend/.pnp
-frontend/.pnp.js
-
-# Testing
-coverage/
-

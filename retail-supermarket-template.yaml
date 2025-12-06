@@ -1,0 +1,378 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Retail Supermarket Chains - Full Stack Serverless Application
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        PRODUCTS_TABLE: !Ref ProductsTable
+        INVENTORY_TABLE: !Ref InventoryTable
+        ORDERS_TABLE: !Ref OrdersTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
+        USER_POOL_ID: !Ref UserPool
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: retail-supermarket
+    Description: Name of the project
+
+Resources:
+  # DynamoDB Tables
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-products'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: categoryId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: category-index
+          KeySchema:
+            - AttributeName: categoryId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  InventoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-inventory'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: locationId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+        - AttributeName: locationId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: location-index
+          KeySchema:
+            - AttributeName: locationId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-orders'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: orderId
+          AttributeType: S
+        - AttributeName: orderDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: orderId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: orderDate-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: orderDate
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-categories'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: categoryId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: categoryId
+          KeyType: HASH
+
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectName}-users'
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+        - Name: phone_number
+          Required: false
+          Mutable: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub '${ProjectName}-client'
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  # Lambda Functions
+  ProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-products'
+      CodeUri: backend/functions/products/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetProducts:
+          Type: HttpApi
+          Properties:
+            Path: /products
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+        GetProduct:
+          Type: HttpApi
+          Properties:
+            Path: /products/{productId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+        CreateProduct:
+          Type: HttpApi
+          Properties:
+            Path: /products
+            Method: POST
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        UpdateProduct:
+          Type: HttpApi
+          Properties:
+            Path: /products/{productId}
+            Method: PUT
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        DeleteProduct:
+          Type: HttpApi
+          Properties:
+            Path: /products/{productId}
+            Method: DELETE
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetProductsByCategory:
+          Type: HttpApi
+          Properties:
+            Path: /products/category/{categoryId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+
+  CategoriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-categories'
+      CodeUri: backend/functions/categories/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+      Events:
+        GetCategories:
+          Type: HttpApi
+          Properties:
+            Path: /categories
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+        GetCategory:
+          Type: HttpApi
+          Properties:
+            Path: /categories/{categoryId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+        CreateCategory:
+          Type: HttpApi
+          Properties:
+            Path: /categories
+            Method: POST
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  InventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-inventory'
+      CodeUri: backend/functions/inventory/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InventoryTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+      Events:
+        GetInventory:
+          Type: HttpApi
+          Properties:
+            Path: /inventory
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetInventoryByProduct:
+          Type: HttpApi
+          Properties:
+            Path: /inventory/product/{productId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+        UpdateInventory:
+          Type: HttpApi
+          Properties:
+            Path: /inventory/{productId}
+            Method: PUT
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  OrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-orders'
+      CodeUri: backend/functions/orders/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductsTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref InventoryTable
+      Events:
+        CreateOrder:
+          Type: HttpApi
+          Properties:
+            Path: /orders
+            Method: POST
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetOrders:
+          Type: HttpApi
+          Properties:
+            Path: /orders
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+        GetOrder:
+          Type: HttpApi
+          Properties:
+            Path: /orders/{orderId}
+            Method: GET
+            ApiId: !Ref HttpApiGateway
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+
+  # API Gateway
+  HttpApiGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 300
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+              audience:
+                - !Ref UserPoolClient
+            IdentitySource: '$request.header.Authorization'
+        DefaultAuthorizer: CognitoJwtAuthorizer
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${HttpApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+    Export:
+      Name: !Sub '${ProjectName}-api-url'
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${ProjectName}-user-pool-id'
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${ProjectName}-user-pool-client-id'
+
+  Region:
+    Description: AWS Region
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub '${ProjectName}-region'
+
+  ProductsTableName:
+    Description: Products DynamoDB Table Name
+    Value: !Ref ProductsTable
+
+  InventoryTableName:
+    Description: Inventory DynamoDB Table Name
+    Value: !Ref InventoryTable
+
+  OrdersTableName:
+    Description: Orders DynamoDB Table Name
+    Value: !Ref OrdersTable
+
+  CategoriesTableName:
+    Description: Categories DynamoDB Table Name
+    Value: !Ref CategoriesTable
