@@ -102,8 +102,7 @@ try {
 
 Write-Host ""
 Write-Host "Step 7: Setting bucket policy..." -ForegroundColor Yellow
-$policyJson = @"
-{
+$policyJson = '{
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -111,11 +110,10 @@ $policyJson = @"
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::$bucketName/*"
+      "Resource": "arn:aws:s3:::' + $bucketName + '/*"
     }
   ]
-}
-"@
+}'
 
 $policyJson | Out-File -FilePath "temp-policy.json" -Encoding ascii -NoNewline
 

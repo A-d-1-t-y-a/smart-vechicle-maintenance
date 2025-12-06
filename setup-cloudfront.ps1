@@ -26,8 +26,7 @@ Write-Host "Website Endpoint: $websiteEndpoint" -ForegroundColor White
 Write-Host ""
 
 Write-Host "Step 1: Ensuring bucket policy is set..." -ForegroundColor Yellow
-$policyJson = @"
-{
+$policyJson = '{
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -35,11 +34,10 @@ $policyJson = @"
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::$bucketName/*"
+      "Resource": "arn:aws:s3:::' + $bucketName + '/*"
     }
   ]
-}
-"@
+}'
 
 $policyJson | Out-File -FilePath "temp-policy.json" -Encoding ascii -NoNewline
 
@@ -57,9 +55,9 @@ Write-Host ""
 Write-Host "Step 2: Creating CloudFront distribution..." -ForegroundColor Yellow
 $callerRef = "retail-supermarket-$(Get-Date -Format 'yyyyMMddHHmmss')"
 
-$cloudFrontConfig = @"
-{
-  "CallerReference": "$callerRef",
+# Build JSON config using string concatenation to avoid parsing issues
+$cloudFrontConfig = '{
+  "CallerReference": "' + $callerRef + '",
   "Comment": "Retail Supermarket - HTTPS Access",
   "DefaultRootObject": "index.html",
   "Origins": {
@@ -67,7 +65,7 @@ $cloudFrontConfig = @"
     "Items": [
       {
         "Id": "S3-retail-supermarket",
-        "DomainName": "$websiteEndpoint",
+        "DomainName": "' + $websiteEndpoint + '",
         "CustomOriginConfig": {
           "HTTPPort": 80,
           "HTTPSPort": 443,
@@ -121,8 +119,7 @@ $cloudFrontConfig = @"
   },
   "Enabled": true,
   "PriceClass": "PriceClass_100"
-}
-"@
+}'
 
 $cloudFrontConfig | Out-File -FilePath "cloudfront-config.json" -Encoding ascii -NoNewline
 
